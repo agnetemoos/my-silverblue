@@ -23,14 +23,19 @@ jobs:
       run: |
         echo "${{ secrets.GHCR_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
 
-    - name: Build image
+    - name: Build image with Git SHA tag
       run: |
-        podman build -t ghcr.io/${{ github.repository_owner }}/fedora-silverblue-custom:latest .
+        podman build -t ghcr.io/${{ github.repository_owner }}/fedora-silverblue-custom:${{ github.sha }} .
 
-    - name: Push image
+    - name: Push image with Git SHA tag
       run: |
+        podman push ghcr.io/${{ github.repository_owner }}/fedora-silverblue-custom:${{ github.sha }}
+
+    - name: (Optional) Build and push :latest tag
+      run: |
+        podman tag ghcr.io/${{ github.repository_owner }}/fedora-silverblue-custom:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/fedora-silverblue-custom:latest
         podman push ghcr.io/${{ github.repository_owner }}/fedora-silverblue-custom:latest
 
-    - name: Output image digest (optional)
+    - name: Output image digest
       run: |
-        podman inspect ghcr.io/${{ github.repository_owner }}/fedora-silverblue-custom:latest --format '{{.Id}}'
+        podman inspect ghcr.io/${{ github.repository_owner }}/fedora-silverblue-custom:${{ github.sha }} --format '{{.Id}}'
