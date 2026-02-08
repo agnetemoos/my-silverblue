@@ -8,23 +8,28 @@ RUN ln -sf /usr/share/zoneinfo/Europe/Copenhagen /etc/localtime
 RUN echo 'LANG=da_DK.UTF-8' > /etc/locale.conf
 RUN echo 'LC_TIME=da_DK.UTF-8' >> /etc/locale.conf
 
-# Copy your custom SVG background into the image
-COPY my-background.svg /usr/share/backgrounds/custom/my-background.svg
+# Enable guest session in GDM
+RUN mkdir -p /etc/gdm
+RUN echo '[daemon]' > /etc/gdm/custom.conf
+RUN echo 'AutomaticLoginEnable=True' >> /etc/gdm/custom.conf
+RUN echo 'AutomaticLogin=guest' >> /etc/gdm/custom.conf
+RUN echo 'AllowGuest=true' >> /etc/gdm/custom.conf
 
-# Create a GNOME wallpaper definition
-RUN mkdir -p /usr/share/backgrounds/custom
-RUN echo '<wallpaper>' > /usr/share/backgrounds/custom/custom-wallpaper.xml
-RUN echo '  <name>Custom SVG Background</name>' >> /usr/share/backgrounds/custom/custom-wallpaper.xml
-RUN echo '  <filename>/usr/share/backgrounds/custom/my-background.svg</filename>' >> /usr/share/backgrounds/custom/custom-wallpaper.xml
-RUN echo '  <options>zoom</options>' >> /usr/share/backgrounds/custom/custom-wallpaper.xml
-RUN echo '  <pcolor>#000000</pcolor>' >> /usr/share/backgrounds/custom/custom-wallpaper.xml
-RUN echo '  <scolor>#000000</scolor>' >> /usr/share/backgrounds/custom/custom-wallpaper.xml
-RUN echo '</wallpaper>' >> /usr/share/backgrounds/custom/custom-wallpaper.xml
+# Create guest user (required for auto-login to work)
+RUN useradd -m -s /bin/bash -c "Guest User" guest
 
-# Set GNOME to use this wallpaper
-RUN gsettings set org.gnome.desktop.background picture-uri 'file:///usr/share/backgrounds/custom/my-background.svg'
-RUN gsettings set org.gnome.desktop.background picture-options 'zoom'
+# Set guest session wallpaper via dconf
+RUN mkdir -p /etc/dconf/db/local.d
+RUN echo '[org/gnome/desktop/background]' > /etc/dconf/db/local.d/00-wallpaper
+RUN echo "picture-uri='file:///usr/share/backgrounds/custom/guest-background.svg'" >> /etc/dconf/db/local.d/00-wallpaper
+RUN echo "picture-options='zoom'" >> /etc/dconf/db/local.d/00-wallpaper
+
+# Compile dconf database
+RUN dconf update
+
+# Copy custom SVG background
+COPY guest-background.svg /usr/share/backgrounds/custom/guest-background.svg
 
 # Final labels
 LABEL maintainer="Agnete Moos <agms@sonderborg.dk>"
-LABEL description="Custom Fedora Silverblue 43 desktop with custom SVG GNOME wallpaper"
+LABEL description="Custom Fedora Silverblue 43 desktop with auto-login guest session and custom wallpaper"
