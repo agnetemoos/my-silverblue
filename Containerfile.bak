@@ -15,6 +15,23 @@ RUN mkdir -p /usr/share/guest-template/Desktop
 RUN echo 'This is your desktop.' > /usr/share/guest-template/Desktop/readme.txt
 
 # Create login script to set unique home directory
+RUN mkdir -p /etc/profile.d
+RUN echo '#!/bin/bash' > /etc/profile.d/dynamic-guest-home.sh
+RUN echo 'if [ "$USER" = "guestuser" ]; then' >> /etc/profile.d/dynamic-guest-home.sh
+RUN echo '    # Create unique home directory' >> /etc/profile.d/dynamic-guest-home.sh
+RUN echo '    TIMESTAMP=$(date +%s)' >> /etc/profile.d/dynamic-guest-home.sh
+RUN echo '    GUEST_HOME="/tmp/guest-home-$TIMESTAMP"' >> /etc/profile.d/dynamic-guest-home.sh
+RUN echo '    mkdir -p "$GUEST_HOME"' >> /etc/profile.d/dynamic-guest-home.sh
+RUN echo '    # Copy clean template' >> /etc/profile.d/dynamic-guest-home.sh
+RUN echo '    cp -a /usr/share/guest-template/. "$GUEST_HOME/"' >> /etc/profile.d/dynamic-guest-home.sh
+RUN echo '    # Set HOME environment variable' >> /etc/profile.d/dynamic-guest-home.sh
+RUN echo '    export HOME="$GUEST_HOME"' >> /etc/profile.d/dynamic-guest-home.sh
+RUN echo '    # Set XDG directories' >> /etc/profile.d/dynamic-guest-home.sh
+RUN echo '    export XDG_DESKTOP_DIR="$HOME/Desktop"' >> /etc/profile.d/dynamic-guest-home.sh
+RUN echo '    export XDG_DOWNLOAD_DIR="$HOME/Downloads"' >> /etc/profile.d/dynamic-guest-home.sh
+RUN echo '    export XDG_DOCUMENTS_DIR="$HOME/Documents"' >> /etc/profile.d/dynamic-guest-home.sh
+RUN echo 'fi' >> /etc/profile.d/dynamic-guest-home.sh
+RUN chmod +x /etc/profile.d/dynamic-guest-home.sh
 
 # Set guestuser's wallpaper via dconf
 RUN mkdir -p /etc/dconf/db/local.d
@@ -34,14 +51,13 @@ RUN echo '[daemon]' > /etc/gdm/custom.conf
 RUN echo 'AutomaticLoginEnable=True' >> /etc/gdm/custom.conf
 RUN echo 'AutomaticLogin=guestuser' >> /etc/gdm/custom.conf
 
-# Create systemd service to create guestuser on every boot
-#RUN mkdir -p /etc/systemd/system/create-guestuser.service.d
-#RUN echo '[Service]' > /etc/systemd/system/create-guestuser.service.d/override.conf
-# Denne linie skal vist fjernes:
-#RUN echo 'ExecStartPre=/bin/mkdir -p /var/lib/guestuser' >> /etc/systemd/system/create-guestuser.service.d/override.conf
-#RUN echo 'ExecStart=/usr/sbin/useradd -m -s /bin/bash -c "Guest User" guestuser' >> /etc/systemd/system/create-guestuser.service.d/override.conf
-#RUN echo 'ExecStartPost=/usr/bin/echo "guestuser:" | /usr/sbin/chpasswd' >> /etc/systemd/system/create-guestuser.service.d/override.conf
-# RUN echo 'ExecStartPost=/bin/systemctl disable create-guestuser.service' >> /etc/systemd/system/create-guestuser.service.d/override.conf
+# Create systemd service to create guestuser on first boot
+RUN mkdir -p /etc/systemd/system/create-guestuser.service.d
+RUN echo '[Service]' > /etc/systemd/system/create-guestuser.service.d/override.conf
+RUN echo 'ExecStartPre=/bin/mkdir -p /var/lib/guestuser' >> /etc/systemd/system/create-guestuser.service.d/override.conf
+RUN echo 'ExecStart=/usr/sbin/useradd -m -s /bin/bash -c "Guest User" guestuser' >> /etc/systemd/system/create-guestuser.service.d/override.conf
+RUN echo 'ExecStartPost=/usr/bin/echo "guestuser:" | /usr/sbin/chpasswd' >> /etc/systemd/system/create-guestuser.service.d/override.conf
+RUN echo 'ExecStartPost=/bin/systemctl disable create-guestuser.service' >> /etc/systemd/system/create-guestuser.service.d/override.conf
 
 RUN echo '[Unit]' > /etc/systemd/system/create-guestuser.service
 RUN echo 'Description=Create guestuser on first boot' >> /etc/systemd/system/create-guestuser.service
@@ -51,7 +67,7 @@ RUN echo '' >> /etc/systemd/system/create-guestuser.service
 RUN echo '[Service]' >> /etc/systemd/system/create-guestuser.service
 RUN echo 'Type=oneshot' >> /etc/systemd/system/create-guestuser.service
 RUN echo 'RemainAfterExit=yes' >> /etc/systemd/system/create-guestuser.service
-RUN echo 'ExecStart=/usr/sbin/useradd -M -s /bin/bash -c "Guest User" guestuser' >> /etc/systemd/system/create-guestuser.service
+RUN echo 'ExecStart=/usr/sbin/useradd -m -s /bin/bash -c "Guest User" guestuser' >> /etc/systemd/system/create-guestuser.service
 RUN echo 'ExecStartPost=/usr/bin/echo "guestuser:" | /usr/sbin/chpasswd' >> /etc/systemd/system/create-guestuser.service
 RUN echo 'ExecStartPost=/bin/systemctl disable create-guestuser.service' >> /etc/systemd/system/create-guestuser.service
 RUN echo '' >> /etc/systemd/system/create-guestuser.service
@@ -60,12 +76,6 @@ RUN echo 'WantedBy=multi-user.target' >> /etc/systemd/system/create-guestuser.se
 
 # Enable the service
 RUN systemctl enable create-guestuser.service
-
-# Install tmpfs mount
-COPY home.mount /etc/systemd/system/home.mount
-RUN systemctl enable home.mount
-
-COPY kiosk-home.conf /etc/tmpfiles.d/kiosk-home.conf
 
 # Final labels
 LABEL maintainer="Agnete Moos <agms@sonderborg.dk>"

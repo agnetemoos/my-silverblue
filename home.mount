@@ -1,0 +1,12 @@
+[Unit]
+Description=Ephemeral Home Directory
+
+[Mount]
+What=tmpfs
+Where=/home
+Type=tmpfs
+Options=mode=0755
+
+[Install]
+WantedBy=local-fs.target
+
